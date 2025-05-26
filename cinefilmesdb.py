@@ -12,15 +12,15 @@ def criar_tabelas():
     cursor = con.cursor()
 
     #cria a tabela de filmes
-    cursor. execute('''CREATE TABLE IF NOT EXISTS filmes (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            titulo TEXT NOT NULL,
-                            resumo TEXT NOT NULL,
-                            classificacao_indicativa INTEGER,
-                            classificacao_IMDB REAL,
-                            duracao_minutos INTEGER,
-                            data_de_lancamento NUMERIC,
-                            capa BLOB )''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS filmes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        titulo TEXT NOT NULL,
+                        resumo TEXT NOT NULL,
+                        classificacao_indicativa INTEGER,
+                        classificacao_IMDB REAL,
+                        duracao_minutos INTEGER,
+                        data_de_lancamento NUMERIC,
+                        capa BLOB )''')
     
     cursor.execute('''CREATE TABLE IF NOT EXISTS generos (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
