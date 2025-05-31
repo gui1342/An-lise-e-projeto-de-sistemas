@@ -5,11 +5,11 @@ from PIL import Image, ImageTk
 import os
 import sys
 
-from telas.cadastro import TelaCadastro
 
 # Caminho para acessar o login_com_google
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from autenticacao import login_com_google
+from telas.cadastro import TelaCadastro
+from login_com_google_adapter import *
 
 class TelaLogin(ttk.Frame):
     def __init__(self, master, on_login_success):
@@ -68,11 +68,12 @@ class TelaLogin(ttk.Frame):
         botao.pack(pady=10)
 
     def realizar_login(self):
-        dados_usuario = login_com_google()  # supondo que retorna um dicionário
+        adaptador = Login_com_google_adapter()       # cria a instância da classe adaptadora
+        perfil = adaptador.login()           # chama o método de login
 
-        if dados_usuario:
+        if perfil:
             self.destroy()
-            self.on_login_success(dados_usuario) # Chama a função de callback com os dados
+            self.on_login_success(perfil)    # envia o objeto Perfil
         else:
             messagebox.showerror("Erro", "O login falhou ou foi cancelado.")
 
