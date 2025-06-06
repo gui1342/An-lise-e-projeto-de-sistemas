@@ -1,6 +1,6 @@
 import pandas as pd
 from tkinter import Tk, filedialog
-from filmesCRUD import Filmes_CRUD
+from repository.filmesCRUD import Filmes_CRUD
 
 class Importar_filmes:
     def __init__(self):
