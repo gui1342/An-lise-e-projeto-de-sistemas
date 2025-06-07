@@ -1,10 +1,10 @@
 import pandas as pd
 from tkinter import Tk, filedialog
-from repository.filmesCRUD import Filmes_CRUD
+from repository.filme_repository import FilmeRepository
 
 class Importar_filmes:
     def __init__(self):
-        self.repository = Filmes_CRUD()
+        self.repository = FilmeRepository()
 
     def importar_excel(self):
         Tk().withdraw()
@@ -18,61 +18,59 @@ class Importar_filmes:
 
         try:
             df = pd.read_excel(file_path)
-            with self.repository.conecta_banco as con:
-                cursor = con.cursor()
+            for i in range(len(df)):
+                # Processa gêneros
+                generos = [
+                    nome.strip()
+                    for nome in str(df['generos'][i]).split(',')
+                    if nome.strip()
+                ]
 
-                for i in range(len(df)):
-                    # Processa gêneros
-                    generos = []
-                    for nome in str(df['generos'][i]).split(','):
-                        nome = nome.strip()
-                        if nome:
-                            genero_id = self.repository.verificar_ou_gravar_id(cursor, 'generos', 'nome', nome)
-                            generos.append(genero_id)
+                # Processa dublagens
+                dublagens = [
+                    idioma.strip()
+                    for idioma in str(df['dublagens_disponiveis'][i]).split(',')
+                    if idioma.strip()
+                ]
 
-                    # Processa dublagens
-                    dublagens = []
-                    for idioma in str(df['dublagens_disponiveis'][i]).split(','):
-                        idioma = idioma.strip()
-                        if idioma:
-                            dublagem_id = self.repository.verificar_ou_gravar_id(cursor, 'dublagens', 'idioma', idioma)
-                            dublagens.append(dublagem_id)
+                # Processa legendas
+                legendas = [
+                    idioma.strip()
+                    for idioma in str(df['legendas_disponiveis'][i]).split(',')
+                    if idioma.strip()
+                ]
 
-                    # Processa legendas
-                    legendas = []
-                    for idioma in str(df['legendas_disponiveis'][i]).split(','):
-                        idioma = idioma.strip()
-                        if idioma:
-                            legenda_id = self.repository.verificar_ou_gravar_id(cursor, 'legendas_disponiveis', 'idioma', idioma)
-                            legendas.append(legenda_id)
+                # Processa elenco
+                elenco = []
+                for ator_papel in str(df['elenco'][i]).split(';'):
+                    if '-' in ator_papel:
+                        nome, papel = ator_papel.split('-', 1)
+                        elenco.append({
+                            'ator': nome.strip(),
+                            'papel': papel.strip()
+                        })
 
-                    # Processa elenco
-                    elenco = []
-                    for ator_papel in str(df['elenco'][i]).split(';'):
-                        if '-' in ator_papel:
-                            nome, papel = ator_papel.split('-', 1)
-                            nome = nome.strip()
-                            papel = papel.strip()
-                            ator_id = self.repository.verificar_ou_gravar_id(cursor, 'atores', 'nome', nome)
-                            elenco.append((ator_id, papel))
+                filme_dados = {
+                    'titulo': df['titulo'][i],
+                    'resumo': df['resumo'][i],
+                    'classificacao_indicativa': df['classificacao_indicativa'][i],
+                    'classificacao_IMDB': df['classificacao_IMDB'][i],
+                    'duracao_minutos': df['duracao_minutos'][i],
+                    'data_de_lancamento': pd.to_datetime(df['data_de_lancamento'][i]).date(),
+                    'capa': df['capa'][i],
+                    'generos': generos,
+                    'dublagens': dublagens,
+                    'legendas': legendas,
+                    'elenco': elenco
+                }
 
-                    self.repository.incluir_filme(
-                        cursor,
-                        df['titulo'][i],
-                        df['resumo'][i],
-                        df['classificacao_indicativa'][i],
-                        df['classificacao_IMDB'][i],
-                        df['duracao_minutos'][i],
-                        pd.to_datetime(df['data_de_lancamento'][i]).date(),
-                        df['capa'][i],
-                        generos,
-                        dublagens,
-                        legendas,
-                        elenco
-                    )
+                try:
+                    self.repository.criar(filme_dados)
+                    print(f"Filme '{filme_dados['titulo']}' importado com sucesso!")
+                except ValueError as e:
+                    print(f"Aviso: {str(e)}")
 
-                con.commit()
-                print("Importação concluída com sucesso!")
+            print("Importação concluída!")
 
         except Exception as e:
             print("Erro ao importar filmes:", e) 
