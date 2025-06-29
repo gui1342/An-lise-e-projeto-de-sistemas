@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional
 from cinefilmesdb import conecta
+import sqlite3
 
 class FilmeRepository:
     """
@@ -63,43 +64,45 @@ class FilmeRepository:
                 'elenco': self._buscar_elenco(cursor, filme[0])
             }
 
-    def criar(self, filme_dict: Dict[str, Any]) -> int:
-        """Cria um novo filme com seus relacionamentos."""
-        with self.conecta_banco as con:
-            cursor = con.cursor()
-            
-            # Verifica se o filme já existe
-            cursor.execute(
-                'SELECT id FROM filmes WHERE titulo = ? AND data_de_lancamento = ?',
-                (filme_dict['titulo'], filme_dict['data_de_lancamento'])
-            )
-            if cursor.fetchone():
-                raise ValueError(f'Filme "{filme_dict["titulo"]}" já cadastrado.')
+    def criar(self, cursor: sqlite3.Cursor, filme_dict: Dict[str, Any]) -> int:
+        """
+        Cria um novo filme com seus relacionamentos usando um cursor existente.
+        Este método NÃO gerencia a transação; ele apenas executa os comandos.
+        """
+        # Verifica se o filme já existe
+        cursor.execute(
+            'SELECT id FROM filmes WHERE titulo = ? AND data_de_lancamento = ?',
+            # É uma boa prática converter a data para string no formato ISO
+            # para garantir consistência com o que é salvo no banco.
+            (filme_dict['titulo'], filme_dict['data_de_lancamento'].isoformat())
+        )
+        if cursor.fetchone():
+            raise ValueError(f'Filme "{filme_dict["titulo"]}" já cadastrado.')
 
-            # Insere o filme
-            cursor.execute('''
-                INSERT INTO filmes (titulo, resumo, classificacao_indicativa,
-                                  classificacao_IMDB, duracao_minutos,
-                                  data_de_lancamento, capa)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                filme_dict['titulo'],
-                filme_dict['resumo'],
-                filme_dict['classificacao_indicativa'],
-                filme_dict['classificacao_IMDB'],
-                filme_dict['duracao_minutos'],
-                filme_dict['data_de_lancamento'],
-                filme_dict['capa']
-            ))
-            filme_id = cursor.lastrowid
+        # Insere o filme
+        cursor.execute('''
+            INSERT INTO filmes (titulo, resumo, classificacao_indicativa,
+                            classificacao_IMDB, duracao_minutos,
+                            data_de_lancamento, capa)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            filme_dict['titulo'],
+            filme_dict['resumo'],
+            filme_dict['classificacao_indicativa'],
+            filme_dict['classificacao_IMDB'],
+            filme_dict['duracao_minutos'],
+            filme_dict['data_de_lancamento'].isoformat(), # Salva a data como texto
+            filme_dict['capa']
+        ))
+        filme_id = cursor.lastrowid
 
-            # Insere os relacionamentos
-            self._inserir_generos(cursor, filme_id, filme_dict['generos'])
-            self._inserir_dublagens(cursor, filme_id, filme_dict['dublagens'])
-            self._inserir_legendas(cursor, filme_id, filme_dict['legendas'])
-            self._inserir_elenco(cursor, filme_id, filme_dict['elenco'])
+        # Insere os relacionamentos
+        self._inserir_generos(cursor, filme_id, filme_dict['generos'])
+        self._inserir_dublagens(cursor, filme_id, filme_dict['dublagens'])
+        self._inserir_legendas(cursor, filme_id, filme_dict['legendas'])
+        self._inserir_elenco(cursor, filme_id, filme_dict['elenco'])
 
-            return filme_id
+        return filme_id
 
     def atualizar(self, id: int, filme_dict: Dict[str, Any]) -> bool:
         """Atualiza um filme e seus relacionamentos."""
@@ -137,6 +140,51 @@ class FilmeRepository:
             self._inserir_elenco(cursor, id, filme_dict['elenco'])
 
             return True
+        
+    def atualizar_capa(self, filme_id: int, novo_caminho_capa: str) -> bool:
+        """Atualiza APENAS o caminho da capa de um filme específico."""
+        with self.conecta_banco as con:
+            cursor = con.cursor()
+            cursor.execute(
+                "UPDATE filmes SET capa = ? WHERE id = ?",
+                (novo_caminho_capa, filme_id)
+            )
+            con.commit()
+            # Retorna True se alguma linha foi alterada, False caso contrário
+            return cursor.rowcount > 0
+
+    # Adicione este método à sua classe Filmes_CRUD ou FilmeRepository
+
+    def listar_todos_generos(self):
+        """
+        Busca e retorna uma lista com o nome de todos os gêneros
+        disponíveis, ordenados alfabeticamente.
+        """
+        with self.conecta_banco as con:
+            cursor = con.cursor()
+            cursor.execute('SELECT nome FROM generos ORDER BY nome')
+            return [linha[0] for linha in cursor.fetchall()]
+
+    def buscar_filmes_por_genero(self, nome_genero):
+        """Busca e retorna uma lista de dicionários de filmes para um dado gênero."""
+        with self.conecta_banco as con:
+            cursor = con.cursor()
+            cursor.execute('''
+                SELECT f.id, f.titulo, f.capa FROM filmes f
+                JOIN filmes_generos fg ON f.id = fg.filme_id
+                JOIN generos g ON g.id = fg.genero_id
+                WHERE g.nome = ?
+                ORDER BY f.titulo
+            ''', (nome_genero,))
+            
+            filmes_do_genero = []
+            for filme in cursor.fetchall():
+                filmes_do_genero.append({
+                    'id': filme[0],
+                    'titulo': filme[1],
+                    'capa': filme[2]
+                })
+            return filmes_do_genero
 
     def deletar(self, id: int) -> bool:
         """Deleta um filme e seus relacionamentos."""
