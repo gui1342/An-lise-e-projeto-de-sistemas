@@ -1,8 +1,8 @@
-from database.conecta_banco import conecta_banco
+from cinefilmesdb import conecta
 
 class Filmes_CRUD:
     def __init__(self):
-        self.conecta_banco = conecta_banco()
+        self.conecta_banco = conecta()
 
     def listar_todos(self):
         with self.conecta_banco as con:
@@ -31,6 +31,7 @@ class Filmes_CRUD:
             
             return lista_filmes
 
+    """Busca generos por filme"""
     def _buscar_generos(self, cursor, filme_id):
         cursor.execute('''
             SELECT g.nome FROM generos g
@@ -70,7 +71,7 @@ class Filmes_CRUD:
             return row[0]
         cursor.execute(f'INSERT INTO {table} ({column}) VALUES (?)', (value,))
         return cursor.lastrowid
-
+    
     def incluir_filme(self, cursor, titulo, resumo, classificacao_indicativa,
                      classificacao_IMDB, duracao_minutos, data_de_lancamento,
                      capa, generos, dublagens_disponiveis, legendas_disponiveis,
