@@ -4,7 +4,7 @@ from datetime import date
 # --- IMPORTANTE ---
 # Coloque sua Chave de API do Google AI Studio aqui.
 # É altamente recomendável usar variáveis de ambiente para isso em um projeto real.
-GOOGLE_API_KEY = 'AIzaSyC4q9kgMBOlvS9hPPJ7Z85FlNf9Xclb86I'
+GOOGLE_API_KEY = ''
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
