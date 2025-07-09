@@ -8,7 +8,7 @@ import sys
 
 # Caminho para acessar o login_com_google
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from telas.cadastro import TelaCadastro
+#from telas.cadastro import TelaCadastro
 from login_com_google_adapter import *
 
 class TelaLogin(ttk.Frame):
@@ -17,8 +17,6 @@ class TelaLogin(ttk.Frame):
         self.master = master
         self.on_login_success = on_login_success
         self.pack(fill=BOTH, expand=YES)
-
-        master.protocol("WM_DELETE_WINDOW", self.confirmar_saida)
 
         # Header
         ttk.Label(
@@ -77,17 +75,12 @@ class TelaLogin(ttk.Frame):
         else:
             messagebox.showerror("Erro", "O login falhou ou foi cancelado.")
 
-    def confirmar_saida(self):
-        if messagebox.askokcancel("Sair", "Deseja realmente sair?"):
-            self.master.destroy()
 
-
-
-if __name__ == "__main__":
+"""if __name__ == "__main__":
     app = ttk.Window("Login - Cine Filmes", "superhero", resizable=(False, False))
 
     def mostrar_tela_cadastro(dados):
         TelaCadastro(app, dados)
 
     TelaLogin(app, on_login_success=mostrar_tela_cadastro)
-    app.mainloop()
+    app.mainloop()"""

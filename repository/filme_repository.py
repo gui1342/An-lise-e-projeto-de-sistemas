@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 from cinefilmesdb import conecta
 import sqlite3
+from perfil_do_usuario import Perfil
 
 class FilmeRepository:
     """
@@ -72,8 +73,6 @@ class FilmeRepository:
         # Verifica se o filme já existe
         cursor.execute(
             'SELECT id FROM filmes WHERE titulo = ? AND data_de_lancamento = ?',
-            # É uma boa prática converter a data para string no formato ISO
-            # para garantir consistência com o que é salvo no banco.
             (filme_dict['titulo'], filme_dict['data_de_lancamento'].isoformat())
         )
         if cursor.fetchone():
@@ -277,4 +276,112 @@ class FilmeRepository:
         cursor.execute('DELETE FROM filmes_generos WHERE filme_id = ?', (filme_id,))
         cursor.execute('DELETE FROM filmes_dublagens WHERE filme_id = ?', (filme_id,))
         cursor.execute('DELETE FROM filmes_legendas_disponiveis WHERE filme_id = ?', (filme_id,))
-        cursor.execute('DELETE FROM elenco WHERE filme_id = ?', (filme_id,)) 
+        cursor.execute('DELETE FROM elenco WHERE filme_id = ?', (filme_id,))
+
+    #gerencia o login no banco de dados
+    def salvar_ou_atualizar_usuario(self, perfil:Perfil) -> int:
+        """
+        Verifica se um usuário existe pelo google_id.
+        Se não existir, cria. Se existir, atualiza.
+        Retorna o ID interno do usuário no banco de dados.
+        """
+        with self.conecta_banco as con:
+            cursor = con.cursor()
+            
+            # Primeiro, verifica se o usuário já existe
+            cursor.execute("SELECT id FROM usuarios WHERE google_id = ?", (perfil.google_id,))
+            resultado = cursor.fetchone()
+            
+            if resultado:
+                # O usuário existe, então atualiza
+                user_id = resultado[0]
+                cursor.execute("""
+                    UPDATE usuarios 
+                    SET nome = ?, email = ?, foto_url = ?, ultimo_login = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (perfil.nome_completo, perfil.email, perfil.foto, user_id))
+            else:
+                # O usuário não existe, então insere
+                cursor.execute("""
+                    INSERT INTO usuarios (google_id, email, nome, foto_url, ultimo_login)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """, (perfil.google_id, perfil.email, perfil.nome_completo, perfil.foto))
+                user_id = cursor.lastrowid
+                
+            con.commit()
+            return user_id
+
+    def buscar_usuario_por_id(self, user_id: int) -> Perfil | None:
+        """Busca os dados de um usuário pelo seu ID interno e retorna um objeto Perfil"""
+        with self.conecta_banco as con:
+            con.row_factory = sqlite3.Row # Permite acessar colunas por nome
+            cursor = con.cursor()
+            cursor.execute("SELECT * FROM usuarios WHERE id = ?", (user_id,))
+            user_row = cursor.fetchone()
+            
+            if not user_row:
+                return None
+            
+        # Cria e retorna uma instância da classe Perfil
+        return Perfil(
+            id_banco=user_row['id'],
+            google_id=user_row['google_id'],
+            nome=user_row['nome'],
+            email=user_row['email'],
+            foto_url=user_row['foto_url'],
+            data_nascimento=user_row['data_nascimento']
+        )
+    
+    def verificar_perfil_completo(self, usuario_id: int) -> bool:
+        """Verifica se o usuário já tem uma data de nascimento cadastrada."""
+        with self.conecta_banco as con:
+            cursor = con.cursor()
+            cursor.execute("SELECT data_nascimento FROM usuarios WHERE id = ?", (usuario_id,))
+            resultado = cursor.fetchone()
+            return resultado is not None and resultado[0] is not None
+
+    def atualizar_data_nascimento(self, usuario_id: int, data_nascimento: str):
+        """Atualiza a data de nascimento de um usuário específico."""
+        with self.conecta_banco as con:
+            cursor = con.cursor()
+            cursor.execute(
+                "UPDATE usuarios SET data_nascimento = ? WHERE id = ?",
+                (data_nascimento, usuario_id)
+            )
+            con.commit()
+
+    def verificar_interesse(self, usuario_id, filme_id):
+        """Verifica se um filme já está na lista de interesses do usuário."""
+        with self.conecta_banco as con:
+            cursor = con.cursor()
+            cursor.execute("SELECT 1 FROM interesses_usuario WHERE usuario_id = ? AND filme_id = ?", (usuario_id, filme_id))
+            resultado = cursor.fetchone()
+            return resultado is not None
+
+    def alternar_interesse(self, usuario_id, filme_id):
+        """Adiciona o filme aos interesses se não estiver, ou remove se já estiver.
+        Retorna o novo estado (True se agora tem interesse, False se não tem)."""
+        tem_interesse = self.verificar_interesse(usuario_id, filme_id)
+        with self.conecta_banco as con:
+            cursor = con.cursor()
+            if tem_interesse:
+                cursor.execute("DELETE FROM interesses_usuario WHERE usuario_id = ? AND filme_id = ?", (usuario_id, filme_id))
+                novo_estado = False
+            else:
+                cursor.execute("INSERT INTO interesses_usuario (usuario_id, filme_id) VALUES (?, ?)", (usuario_id, filme_id))
+                novo_estado = True
+            con.commit()
+            return novo_estado
+
+    def listar_interesses_por_usuario(self, usuario_id):
+        """Retorna uma lista com os títulos dos filmes de interesse de um usuário."""
+        with self.conecta_banco as con:
+            cursor = con.cursor()
+            # Junta as tabelas para pegar o título do filme diretamente
+            cursor.execute("""
+                SELECT f.titulo FROM filmes f
+                JOIN interesses_usuario iu ON f.id = iu.filme_id
+                WHERE iu.usuario_id = ?
+            """, (usuario_id,))
+            filmes = [row[0] for row in cursor.fetchall()]
+            return filmes
