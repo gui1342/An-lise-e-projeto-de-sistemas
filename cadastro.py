@@ -2,33 +2,26 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from tkinter import messagebox, StringVar, INSERT
 from datetime import datetime
-
+from repository.filme_repository import FilmeRepository
+from perfil_do_usuario import Perfil
 
 class TelaCadastro(ttk.Frame):
-    def __init__(self, master, dados_usuario):
+    def __init__(self, master, dados_usuario: Perfil, on_cadastro_success):
         super().__init__(master, padding=(20, 10))
         self.pack(fill=BOTH, expand=YES)
+        
+        self.dados_usuario = dados_usuario
+        self.on_cadastro_success = on_cadastro_success
+        self.repository = FilmeRepository()
 
-        ttk.Label(
-            self, text="Complete seu cadastro:", font=("TkDefaultFont", 12, "bold")
-        ).pack(pady=(10, 10))
+        ttk.Label(self, text="Complete seu cadastro:", font=("TkDefaultFont", 12, "bold")).pack(pady=(10, 10))
+        ttk.Label(self, text=f"Nome: {dados_usuario.nome_completo}").pack(pady=5, fill=X)
+        ttk.Label(self, text=f"Email: {dados_usuario.email}").pack(pady=5, fill=X)
 
-        # Exibe dados obtidos
-        ttk.Label(self, text=f"Nome: {dados_usuario.get('nome', 'Não disponível')}").pack(pady=5, fill=X)
-        ttk.Label(self, text=f"Email: {dados_usuario.get('email', 'Não disponível')}").pack(pady=5, fill=X)
-
-        # Campo para confirmar a data de nascimento
         self.aniversario_var = StringVar()
         self.criar_aniversario(self)
 
-        # Botão para finalizar cadastro
-        ttk.Button(
-            self,
-            text="Finalizar Cadastro",
-            bootstyle=SUCCESS,
-            command=self.finalizar_cadastro
-        ).pack(pady=15, fill=X)
-
+        ttk.Button(self, text="Finalizar Cadastro", bootstyle=SUCCESS, command=self.finalizar_cadastro).pack(pady=15, fill=X)
 
     def formatar_aniversario(self, entrada_var):
         entrada = self.aniversario_entry
@@ -76,14 +69,21 @@ class TelaCadastro(ttk.Frame):
 
     def finalizar_cadastro(self):
         aniversario = self.aniversario_var.get()
-
         if not aniversario:
             messagebox.showwarning("Aviso", "Por favor, insira sua data de nascimento!")
             return
 
         try:
-            datetime.strptime(aniversario, '%d/%m/%Y')
-            messagebox.showinfo("Sucesso", f"Cadastro finalizado com sucesso!")
-            self.destroy()  # Fecha a tela de cadastro
+            data_obj = datetime.strptime(aniversario, '%d/%m/%Y')
+            data_para_db = data_obj.strftime('%Y-%m-%d')
+            
+            # Salva a data no banco
+            self.repository.atualizar_data_nascimento(self.dados_usuario.id, data_para_db)
+            messagebox.showinfo("Sucesso", "Cadastro finalizado!")
+            
+            # Avisa ao main.py que o cadastro terminou com sucesso
+            self.on_cadastro_success(self.dados_usuario)
         except ValueError:
             messagebox.showwarning("Aviso", "Formato de data inválido. Use DD/MM/AAAA.")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível salvar os dados: {e}")

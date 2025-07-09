@@ -27,9 +27,10 @@ class Login_com_google_adapter(login_adapter):
         )
 
         perfil = Perfil(
+            google_id=idinfo.get("sub"),
             nome=idinfo.get("name"),
             email=idinfo.get("email"),
-            foto=idinfo.get("picture"),
+            foto_url=idinfo.get("picture"),
             tipo_perfil="padrao",
         )
 

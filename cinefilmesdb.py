@@ -78,6 +78,23 @@ def criar_tabelas():
                         FOREIGN KEY(ator_id) REFERENCES atores(id) ON DELETE CASCADE,
                         PRIMARY KEY (filme_id, ator_id))''')
     
+    cursor.execute('''CREATE TABLE IF NOT EXISTS usuarios (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        google_id TEXT NOT NULL UNIQUE,
+                        email TEXT NOT NULL UNIQUE,
+                        nome TEXT,
+                        foto_url TEXT,
+                        data_criacao NUMERIC DEFAULT CURRENT_TIMESTAMP,
+                        ultimo_login NUMERIC, 
+                        data_nascimento TEXT)''')
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS interesses_usuario (
+                    usuario_id INTEGER,
+                    filme_id INTEGER,
+                    FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                    FOREIGN KEY(filme_id) REFERENCES filmes(id) ON DELETE CASCADE,
+                    PRIMARY KEY (usuario_id, filme_id))''')
+    
     #salva as alterações
     con.commit()
     #fecha a conexão
